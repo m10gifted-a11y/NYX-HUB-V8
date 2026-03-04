@@ -1,0 +1,151 @@
+-- // KICIAHOOK V5 ELITE | MAIN MODULE
+-- // Optimized for Delta VNG 2026
+
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Container = Instance.new("ScrollingFrame")
+local OpenBtn = Instance.new("TextButton")
+
+ScreenGui.Parent = game:GetService("CoreGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Name = "KiciaHook_Main"
+
+-- // GLOBALS
+local SilentAimActive = false
+local ESPActive = false
+local FlyActive = false
+local FOVRadius = 150
+local FlySpeed = 50
+local SavedPos = nil
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- // SILENT AIM LOGIC (LAG-FREE)
+local OldNamecall
+OldNamecall = hookmetamethod(game, "__namecall", function(Self, ...)
+    local Method = getnamecallmethod()
+    if SilentAimActive and (Method == "FindPartOnRayWithIgnoreList" or Method == "Raycast") then
+        -- Only run if holding a tool (Fixes weapon switch lag)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool") then
+            local Center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+            local Target = nil
+            local Dist = FOVRadius
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+                    local Pos, OnScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
+                    if OnScreen then
+                        local Mag = (Vector2.new(Pos.X, Pos.Y) - Center).Magnitude
+                        if Mag < Dist then Dist = Mag Target = p end
+                    end
+                end
+            end
+            if Target then return Target.Character.Head, Target.Character.Head.Position end
+        end
+    end
+    return OldNamecall(Self, ...)
+end)
+
+-- // UI DESIGN (Elite Glass Theme)
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.Size = UDim2.new(0, 350, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -200)
+MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.Text = "KICIAHOOK ELITE V5"
+Title.TextColor3 = Color3.fromRGB(255, 50, 150)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.BackgroundTransparency = 1
+
+Container.Parent = MainFrame
+Container.Position = UDim2.new(0, 10, 0, 60)
+Container.Size = UDim2.new(0, 330, 0, 320)
+Container.BackgroundTransparency = 1
+Container.CanvasSize = UDim2.new(0, 0, 2, 0)
+Container.ScrollBarThickness = 2
+local List = Instance.new("UIListLayout", Container)
+List.Padding = UDim.new(0, 10)
+
+-- // BUTTON CREATOR
+local function AddButton(name, color, callback)
+    local btn = Instance.new("TextButton", Container)
+    btn.Size = UDim2.new(0.95, 0, 0, 45)
+    btn.BackgroundColor3 = color or Color3.fromRGB(35, 35, 45)
+    btn.Text = name
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 14
+    Instance.new("UICorner", btn)
+    btn.MouseButton1Click:Connect(function() callback(btn) end)
+end
+
+-- // ADDING FEATURES
+AddButton("Silent Aim [ OFF ]", nil, function(b) 
+    SilentAimActive = not SilentAimActive 
+    b.Text = SilentAimActive and "Silent Aim [ ON ]" or "Silent Aim [ OFF ]"
+    b.TextColor3 = SilentAimActive and Color3.fromRGB(0, 255, 255) or Color3.new(1, 1, 1)
+end)
+
+AddButton("Player ESP [ OFF ]", nil, function(b) 
+    ESPActive = not ESPActive 
+    b.Text = ESPActive and "ESP [ ON ]" or "ESP [ OFF ]"
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character and p.Character:FindFirstChild("Highlight") then p.Character.Highlight.Enabled = ESPActive end
+    end
+end)
+
+AddButton("Save TP Position", Color3.fromRGB(80, 50, 120), function()
+    if LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        SavedPos = LocalPlayer.Character.HumanoidRootPart.CFrame
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "KiciaHook", Text = "Position Saved!"})
+    end
+end)
+
+AddButton("Safe Under-Map TP", Color3.fromRGB(255, 50, 120), function()
+    local HRP = LocalPlayer.Character.HumanoidRootPart
+    if HRP and SavedPos then
+        HRP.CFrame = HRP.CFrame * CFrame.new(0, -50, 0)
+        task.wait(0.1)
+        HRP.CFrame = SavedPos * CFrame.new(0, -50, 0)
+        task.wait(0.1)
+        HRP.CFrame = SavedPos
+    end
+end)
+
+AddButton("Force Accept Trade", Color3.fromRGB(200, 0, 0), function()
+    local r = game:GetService("ReplicatedStorage"):FindFirstChild("TradeRemote") or game:GetService("ReplicatedStorage"):FindFirstChild("AcceptTrade")
+    if r then r:FireServer(true) end
+end)
+
+AddButton("Add All Brainrots", Color3.fromRGB(50, 200, 50), function()
+    local s = Instance.new("Sound", workspace)
+    s.SoundId = "rbxassetid://16045607548" -- Skibidi
+    s.Volume = 3
+    s:Play()
+end)
+
+-- // TOGGLE BUTTON
+OpenBtn.Parent = ScreenGui
+OpenBtn.Size = UDim2.new(0, 50, 0, 50)
+OpenBtn.Position = UDim2.new(0, 10, 0, 10)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 120)
+OpenBtn.Text = "K"
+OpenBtn.Draggable = true
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
+OpenBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+
+-- // ESP INITIALIZER
+local function MakeESP(p)
+    p.CharacterAdded:Connect(function(c)
+        local h = Instance.new("Highlight", c)
+        h.FillColor = Color3.fromRGB(255, 50, 150)
+        h.Enabled = ESPActive
+    end)
+end
+for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then MakeESP(p) end end
+Players.PlayerAdded:Connect(MakeESP)
